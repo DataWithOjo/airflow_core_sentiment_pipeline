@@ -1,1 +1,3 @@
 airflow310/
+config/
+logs/
