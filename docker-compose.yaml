@@ -72,10 +72,6 @@ x-airflow-common:
     _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
     # The following line can be used to set a custom config file, stored in the local config folder
     AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
-    # Add environment variables for MinIO remote logging
-    AIRFLOW__LOGGING__REMOTE_LOGGING: 'True'
-    AIRFLOW__LOGGING__REMOTE_BASE_LOG_FOLDER: 's3://airflow-logs/'
-    AIRFLOW__LOGGING__REMOTE_LOG_CONN_ID: 'minio_conn'
   volumes:
     - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
@@ -89,6 +85,8 @@ x-airflow-common:
     postgres:
       condition: service_healthy
     minio:
+      condition: service_healthy
+    data-postgres:
       condition: service_healthy
 
 services:
@@ -355,6 +353,23 @@ services:
       retries: 3
     restart: always
 
+  # Data PostgreSQL Service
+  data-postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: pageviews_db
+    volumes:
+      - data-postgres-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "data_user"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: always
+
 volumes:
   postgres-db-volume:
   minio_data:
+  data-postgres-db:

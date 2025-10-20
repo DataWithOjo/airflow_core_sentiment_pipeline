@@ -1,1 +1,7 @@
 apache-airflow-providers-amazon
+minio
+pandas
+apache-airflow-providers-common-sql
+psycopg2-binary
+asyncpg
+apache-airflow-providers-postgres
