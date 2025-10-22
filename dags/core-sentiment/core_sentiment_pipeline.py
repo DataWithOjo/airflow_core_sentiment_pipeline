@@ -3,6 +3,7 @@ from datetime import timedelta
 from pendulum import datetime
 from include.upload_to_minio import upload_to_minio
 from include.filter_and_load import filter_and_upload_filtered_file, load_filtered_to_postgres, get_highest_pageviews
+from include.notification import send_email_failure_alert
 
 # Configuration
 pageview_date = "20251010"
@@ -30,7 +31,8 @@ with DAG(
     schedule=None,
     catchup=False,
     description="Download, extract, upload, filter, and analyze Wikimedia pageviews",
-    tags=["wikimedia", "pageviews"]
+    tags=["wikimedia", "pageviews"],
+    on_failure_callback=send_email_failure_alert
 ) as dag:
 
     # Download the .gz file
