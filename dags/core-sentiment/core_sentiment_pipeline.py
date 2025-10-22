@@ -10,6 +10,10 @@ pageview_date = "20251010"
 pageview_hour = "160000"
 year = pageview_date[:4]
 year_month = f"{pageview_date[:4]}-{pageview_date[4:6]}"
+conn_id = "minio_conn"
+postgres_conn_id = "postgres_conn_id"
+bucket_name = "wiki-pageviews"
+table_name = "pageviews_companies"
 
 # File paths
 download_url = (
@@ -18,12 +22,8 @@ download_url = (
 local_dir = "/tmp/pageviews"
 gz_file = f"{local_dir}/pageviews-{pageview_date}-{pageview_hour}.gz"
 extracted_file = f"{local_dir}/pageviews-{pageview_date}-{pageview_hour}"
-bucket_name = "wiki-pageviews"
 object_key = f"{pageview_date}/{pageview_hour}.txt"
-conn_id = "minio_conn"
-postgres_conn_id = "postgres_conn_id"
 filtered_key = f"{pageview_date}/{pageview_hour}-filtered.csv"
-table_name = "pageviews_companies"
 
 with DAG(
     dag_id="core_sentiment_pipeline",
