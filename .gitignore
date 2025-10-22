@@ -1,3 +1,5 @@
 airflow310/
 config/
 logs/
+**/__pycache__/
+*.pyc
