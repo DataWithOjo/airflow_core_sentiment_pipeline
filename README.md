@@ -125,6 +125,7 @@ To launch Airflow:
 
 ```bash
 docker-compose up -d --build
+```
 ---
 
 ## MinIO for Object Storage
