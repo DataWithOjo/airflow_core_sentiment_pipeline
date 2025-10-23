@@ -67,6 +67,7 @@ graph TD
   D --> E(Filter Relevant Companies)
   E --> F[PostgreSQL Database]
   F --> G(Analyze Highest Pageviews)
+```
 
 ## Pipeline Workflow
 
