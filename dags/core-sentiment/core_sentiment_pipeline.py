@@ -62,7 +62,6 @@ with DAG(
     # Filter the uploaded file for 5 companies
     @task
     def filter_file():
-        raise ValueError("This is a deliberate test failure")
         filter_and_upload_filtered_file(
             source_key=object_key,
             filtered_key=filtered_key,
