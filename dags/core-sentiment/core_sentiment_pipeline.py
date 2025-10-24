@@ -1,6 +1,7 @@
 from airflow.sdk import DAG, task
 from datetime import timedelta
 from pendulum import datetime
+from airflow.providers.smtp.operators.smtp import EmailOperator
 from include.upload_to_minio import upload_to_minio
 from include.filter_and_load import filter_and_upload_filtered_file, load_filtered_to_postgres, get_highest_pageviews
 from include.notification import send_email_failure_alert
@@ -32,7 +33,7 @@ with DAG(
     catchup=False,
     description="Download, extract, upload, filter, and analyze Wikimedia pageviews",
     tags=["wikimedia", "pageviews"],
-    on_failure_callback=send_email_failure_alert
+    default_args={"on_failure_callback": send_email_failure_alert}
 ) as dag:
 
     # Download the .gz file
@@ -61,6 +62,7 @@ with DAG(
     # Filter the uploaded file for 5 companies
     @task
     def filter_file():
+        raise ValueError("This is a deliberate test failure")
         filter_and_upload_filtered_file(
             source_key=object_key,
             filtered_key=filtered_key,
@@ -82,11 +84,62 @@ with DAG(
     # Analyze top-viewed company
     @task
     def analyze_top_company():
-        result = get_highest_pageviews(
+        top_company_data = get_highest_pageviews(
             postgres_conn_id=postgres_conn_id,
             table_name=table_name
         )
-        return result
+        return top_company_data
+    
+    # Sends notifications
+    @task()
+    def send_notification_task(top_company_data: dict | None = None, **context):
+        # Sends a summary email using the results from the analyze_top_company task.
 
-    # Define DAG dependencies
-    download_file() >> extract_file() >> upload_file() >> filter_file() >> load_filtered() >> analyze_top_company()
+        execution_date_str = context.get('ds')
+
+        if top_company_data:
+            company = top_company_data["company"]
+            total_views = top_company_data["total_views"]
+
+            html_content = f"""
+                <h3>Wikimedia Pageviews Pipeline Update</h3>
+                <p>Hi Kayode,</p>
+                <p>Your Airflow pipeline has completed <b>successfully</b>.</p>
+                <p>The top-viewed company is <b>{company}</b> with <b>{total_views}</b> total views.</p>
+                <p>Table: <b>{table_name}</b> | Bucket: <b>{bucket_name}</b></p>
+                <br><p>Kind Regards,<br><b>CDE Airflow Team</b></p>
+            """
+        else:
+            html_content = f"""
+                <h3>Wikimedia Pageviews Pipeline Update</h3>
+                <p>Hi Kayode,</p>
+                <p>Your Airflow pipeline has completed successfully, but no company data was found for this run.</p>
+                <p>Table: <b>{table_name}</b> | Bucket: <b>{bucket_name}</b></p>
+                <br><p>Kind Regards,<br><b>CDE Airflow Team</b></p>
+            """
+
+        email = EmailOperator(
+            task_id="send_notification",
+            to=["ojokayode13@gmail.com"],
+            subject=f"Wikimedia Pageviews Pipeline Completed Successfully — {execution_date_str}",
+            html_content=html_content,
+            conn_id="smtp_conn",
+        )
+
+        # Run the email operator inside the Python task
+        email.execute(context=context)
+        print("Notification email sent successfully.")
+    
+    # instantiate the tasks
+    download_task = download_file()
+    extract_task = extract_file()
+    upload_task = upload_file()
+    filter_task = filter_file()
+    load_task = load_filtered()
+    analyze_task = analyze_top_company()
+    
+    # Pass the output of analyze_task as the argument to send_notification_task
+    notification_task = send_notification_task(analyze_task)
+
+    # Set the dependencies using the task instances
+    download_task >> extract_task >> upload_task >> filter_task >> load_task >> analyze_task >> notification_task

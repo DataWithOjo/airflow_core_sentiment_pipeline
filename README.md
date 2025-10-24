@@ -67,6 +67,7 @@ graph TD
   D --> E(Filter Relevant Companies)
   E --> F[PostgreSQL Database]
   F --> G(Analyze Highest Pageviews)
+  G --> H(send_notification_task)
 ```
 
 ## Pipeline Workflow
@@ -79,7 +80,46 @@ graph TD
 | `filter_file`       | `PythonOperator`  | Downloads from MinIO, filters 5 companies, and re-uploads                |
 | `load_filtered`     | `PythonOperator`  | Loads the filtered CSV into PostgreSQL                                   |
 | `analyze_top_company` | `PythonOperator` | Runs SQL to find the company with the highest pageviews                  |
+| `send_notification_task` | `EmailOperator` | Sends a success summary email with top company statistics                 |
 | `on_failure_callback` | `Callable Function` | Sends email alerts on DAG failure with traceback info                    |
+
+## Email Notification System
+
+A **dual-layer notification system** was implemented to ensure full visibility into pipeline execution:
+
+---
+
+### Failure Alert (`on_failure_callback`)
+
+- Sends an **immediate error email** if any task fails.  
+- Includes key details for debugging:
+  - **DAG ID**
+  - **Task name**
+  - **Log URL**
+- Implemented via a custom callable:  
+  ```python
+  send_email_failure_alert()
+  ```
+- Ensures engineers are alerted in real time to fix issues proactively.
+
+![Failure Notification](./docs/failure_notification.png)
+
+### Success Notification (`send_notification_task`)
+
+Triggered **after a successful pipeline run**.
+
+Uses the **`EmailOperator`** to send a summary email showing:
+
+- **The top-viewed company** and its **total views**  
+- **The target PostgreSQL table** and **MinIO bucket**
+
+Provides a confirmation that the **ETL** and **analysis stages** completed correctly.
+
+![Success Notification](./docs/success_notification.png)
+
+---
+
+Together, these notifications give the pipeline **observability** and **reliability** similar to **production-grade systems**.
 
 ## Implementation Highlights
 
@@ -140,7 +180,7 @@ It simulates AWS S3 behavior perfectly for **Airflow + Spark + Data Lake** workf
 A robust `send_email_failure_alert()` callable was implemented using:
 
 ```bash
-from airflow.providers.smtp.notifications.smtp import send_smtp_notification
+from airflow.providers.smtp.operators.smtp import EmailOperator
 ```
 
 This function captures exceptions and automatically emails the failure details, DAG run ID, and log URL for quick debugging.
@@ -151,7 +191,7 @@ This function captures exceptions and automatically emails the failure details, 
 
 - Configured `retries`, `retry_delay`, and alert callbacks  
 - Ensured **idempotence** (tasks can rerun safely)  
-- Used **Airflow connections** securely  
+- Used **Airflow XCOM** and **Airflow connections** securely  
 
 ---
 
